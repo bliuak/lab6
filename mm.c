@@ -378,6 +378,7 @@ void* mm_malloc (size_t size) {
   ptrFreeBlock = searchFreeList(reqSize);
   if (ptrFreeBlock != NULL) {
     removeFreeBlock(ptrFreeBlock);
+    ptrFreeBlock.
     return ptrFreeBlock;
   }
   requestMoreSpace(reqSize);
@@ -395,7 +396,8 @@ void mm_free (void *ptr) {
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
   blockInfo = ptr;
-  
+  blockInfo->sizeAndTags = blockInfo->sizeAndTags   
+
   insertFreeBlock(blockInfo);
   coalesceFreeBlock(blockInfo);
   return;
