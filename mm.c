@@ -374,10 +374,17 @@ void* mm_malloc (size_t size) {
     reqSize = ALIGNMENT * ((size + ALIGNMENT - 1) / ALIGNMENT);
   }
 
-  // Implement mm_malloc.  You can change or remove any of the above
-  // code.  It is included as a suggestion of where to start.
-  // You will want to replace this return statement...
-  return NULL; 
+
+  ptrFreeBlock = searchFreeList(reqSize);
+  if (ptrFreeBlock != NULL) {
+    removeFreeBlock(ptrFreeBlock);
+    return ptrFreeBlock;
+  }
+  requestMoreSpace(reqSize);
+  ptrFreeBlock = searchFreeList(reqSize);
+  removeFreeBlock(ptrFreeBlock);
+  return ptrFreeBlock;
+  
 }
 
 /* Free the block referenced by ptr. */
@@ -385,8 +392,12 @@ void mm_free (void *ptr) {
   size_t payloadSize;
   BlockInfo * blockInfo;
   BlockInfo * followingBlock;
-
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
+  blockInfo = ptr;
+  
+  insertFreeBlock(blockInfo);
+  coalesceFreeBlock(blockInfo);
+  return;
 
 }
