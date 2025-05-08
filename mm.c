@@ -354,6 +354,8 @@
    BlockInfo * ptrFreeBlock = NULL;
    size_t blockSize;
    size_t precedingBlockUseTag;
+   BlockInfo * ptrSplicedBlock = NULL; 
+   size_t SplicedBlockSize;
    // Zero-size requests get NULL.
    if (size == 0) {
      return NULL;
@@ -371,27 +373,45 @@
      // Round up for correct alignment
      reqSize = ALIGNMENT * ((size + ALIGNMENT - 1) / ALIGNMENT);
    }
-   fprintf(stderr, "MALLOC: %ld\n", reqSize);
+   fprintf(stderr, "\n\nMALLOC: %ld\n", reqSize);
    examine_heap();
  
    ptrFreeBlock = searchFreeList(reqSize);
    fprintf(stderr, "FOUND FREE BLOCK: %p\n", ptrFreeBlock);
    if (ptrFreeBlock != NULL) {
-     removeFreeBlock(ptrFreeBlock);
-     fprintf(stderr, "FOUND BLOCK OF SIZE: %ld\n", reqSize);
-     FREE_LIST_HEAD = ptrFreeBlock->next;
-     return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); 
-     //return UNSCALED_POINTER_ADD(ptrFreeBlock->next, WORD_SIZE);
+      fprintf(stderr, "FOUND BLOCK OF SIZE: %ld\n", reqSize);
+      ptrFreeBlock->sizeAndTags = reqSize | TAG_USED;
+      blockSize = SIZE(ptrFreeBlock->sizeAndTags);
+      if(blockSize > reqSize + MIN_BLOCK_SIZE) {
+        ptrSplicedBlock = (BlockInfo *)UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
+        SplicedBlockSize = (blockSize - reqSize);
+        ptrSplicedBlock->sizeAndTags = SplicedBlockSize | TAG_PRECEDING_USED;
+        *((size_t*)UNSCALED_POINTER_ADD(ptrSplicedBlock, SplicedBlockSize - WORD_SIZE)) = SplicedBlockSize | TAG_PRECEDING_USED;
+        insertFreeBlock(ptrSplicedBlock);
+      }
+      removeFreeBlock(ptrFreeBlock);
+      return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); 
    }
+
    requestMoreSpace(reqSize);
    fprintf(stderr, "\nATTEMPING TO REQUEST MORE SPACE OF SIZE:  %ld\n", reqSize);
    ptrFreeBlock = searchFreeList(reqSize);
    fprintf(stderr, "FOUND BLOCK: %p\n", ptrFreeBlock);
    if (ptrFreeBlock != NULL) {
+    ptrFreeBlock->sizeAndTags = ptrFreeBlock->sizeAndTags | TAG_USED;
+    // if block size is greater than the request size plus minimum block size
+    // does it make sense to splice ? 
+    blockSize = SIZE(ptrFreeBlock->sizeAndTags);
+    if(blockSize > reqSize + MIN_BLOCK_SIZE) {
+      ptrSplicedBlock = (BlockInfo *)UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
+      SplicedBlockSize = (blockSize - reqSize);
+      ptrSplicedBlock->sizeAndTags = SplicedBlockSize | TAG_PRECEDING_USED;
+      *((size_t*)UNSCALED_POINTER_ADD(ptrSplicedBlock, SplicedBlockSize - WORD_SIZE)) = SplicedBlockSize | TAG_PRECEDING_USED;
+      insertFreeBlock(ptrSplicedBlock);
+    }
      removeFreeBlock(ptrFreeBlock);
      fprintf(stderr, "EXTENDED HEAP FOR BLOCK OF SIZE: %ld\n", reqSize);
-     
-     FREE_LIST_HEAD = ptrFreeBlock->next;
+
      return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE);  
    }
    fprintf(stderr, "HIT DID NOT FIND: %ld\n", reqSize);
@@ -406,9 +426,12 @@
    BlockInfo * followingBlock;
    // Implement mm_free.  You can change or remove the declaraions
    // above.  They are included as minor hints.
+   
    blockInfo = ptr;
    blockInfo->sizeAndTags = blockInfo->sizeAndTags;   
    fprintf(stderr, "FREE: %p\n", (void *)blockInfo);
+   examine_heap();
+   
    insertFreeBlock(blockInfo);
    coalesceFreeBlock(blockInfo);
    return;
