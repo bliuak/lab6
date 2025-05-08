@@ -301,19 +301,6 @@
    }
    fprintf(stderr, "END OF HEAP\n\n");
  }
- /*BlockInfo * create_block() {
-   BlockInfo *blockInfo; 
-   size_t totalSize; 
-   totalSize = MIN_BLOCK_SIZE; 
-   blockInfo = 
-   blockInfo->sizeAndTags = totalSize | TAG_PRECEDING_USED;
-   blockInfo->next = NULL;
-   blockInfo->prev = NULL; 
-   
-   *((size_t*)UNSCALED_POINTER_ADD(blockInfo, totalSize - WORD_SIZE))
-     = totalSize | TAG_PRECEDING_USED;
-   return blockInfo;
- }*/
  /* Initialize the allocator. */
  int mm_init () {
    // Head of the free list.
@@ -392,7 +379,8 @@
    if (ptrFreeBlock != NULL) {
      removeFreeBlock(ptrFreeBlock);
      fprintf(stderr, "FOUND BLOCK OF SIZE: %ld\n", reqSize);
-     return UNSCALED_POINTER_ADD(ptrFreeBlock->next, WORD_SIZE); 
+     FREE_LIST_HEAD = ptrFreeBlock->next;
+     return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); 
      //return UNSCALED_POINTER_ADD(ptrFreeBlock->next, WORD_SIZE);
    }
    requestMoreSpace(reqSize);
@@ -402,7 +390,9 @@
    if (ptrFreeBlock != NULL) {
      removeFreeBlock(ptrFreeBlock);
      fprintf(stderr, "EXTENDED HEAP FOR BLOCK OF SIZE: %ld\n", reqSize);
-     return UNSCALED_POINTER_ADD(ptrFreeBlock->next, WORD_SIZE);  
+     
+     FREE_LIST_HEAD = ptrFreeBlock->next;
+     return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE);  
    }
    fprintf(stderr, "HIT DID NOT FIND: %ld\n", reqSize);
    return NULL;
