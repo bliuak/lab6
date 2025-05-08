@@ -379,16 +379,19 @@
    ptrFreeBlock = searchFreeList(reqSize);
    fprintf(stderr, "FOUND FREE BLOCK: %p\n", ptrFreeBlock);
    if (ptrFreeBlock != NULL) {
-      fprintf(stderr, "FOUND BLOCK OF SIZE: %ld\n", reqSize);
-      ptrFreeBlock->sizeAndTags = reqSize | TAG_USED;
+
       blockSize = SIZE(ptrFreeBlock->sizeAndTags);
+      fprintf(stderr, "FOUND BLOCK OF SIZE: %ld\n", blockSize);
       if(blockSize > reqSize + MIN_BLOCK_SIZE) {
         ptrSplicedBlock = (BlockInfo *)UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
         SplicedBlockSize = (blockSize - reqSize);
         ptrSplicedBlock->sizeAndTags = SplicedBlockSize | TAG_PRECEDING_USED;
         *((size_t*)UNSCALED_POINTER_ADD(ptrSplicedBlock, SplicedBlockSize - WORD_SIZE)) = SplicedBlockSize | TAG_PRECEDING_USED;
         insertFreeBlock(ptrSplicedBlock);
+        blockSize = (blockSize-SplicedBlockSize);
       }
+      ptrFreeBlock->sizeAndTags = blockSize | TAG_USED;
+      *((size_t*)UNSCALED_POINTER_ADD(ptrFreeBlock, blockSize - WORD_SIZE)) = blockSize | TAG_USED;
       removeFreeBlock(ptrFreeBlock);
       return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); 
    }
@@ -398,7 +401,6 @@
    ptrFreeBlock = searchFreeList(reqSize);
    fprintf(stderr, "FOUND BLOCK: %p\n", ptrFreeBlock);
    if (ptrFreeBlock != NULL) {
-    ptrFreeBlock->sizeAndTags = ptrFreeBlock->sizeAndTags | TAG_USED;
     // if block size is greater than the request size plus minimum block size
     // does it make sense to splice ? 
     blockSize = SIZE(ptrFreeBlock->sizeAndTags);
@@ -408,12 +410,14 @@
       ptrSplicedBlock->sizeAndTags = SplicedBlockSize | TAG_PRECEDING_USED;
       *((size_t*)UNSCALED_POINTER_ADD(ptrSplicedBlock, SplicedBlockSize - WORD_SIZE)) = SplicedBlockSize | TAG_PRECEDING_USED;
       insertFreeBlock(ptrSplicedBlock);
+      blockSize = (blockSize-SplicedBlockSize);
     }
+    ptrFreeBlock->sizeAndTags = blockSize | TAG_USED;
+    *((size_t*)UNSCALED_POINTER_ADD(ptrFreeBlock, blockSize - WORD_SIZE)) = blockSize | TAG_USED;
      removeFreeBlock(ptrFreeBlock);
-     fprintf(stderr, "EXTENDED HEAP FOR BLOCK OF SIZE: %ld\n", reqSize);
-
      return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE);  
    }
+
    fprintf(stderr, "HIT DID NOT FIND: %ld\n", reqSize);
    return NULL;
    
@@ -424,14 +428,20 @@
    size_t payloadSize;
    BlockInfo * blockInfo;
    BlockInfo * followingBlock;
+   size_t followingBlockSize; 
    // Implement mm_free.  You can change or remove the declaraions
    // above.  They are included as minor hints.
-   
    blockInfo = ptr;
-   blockInfo->sizeAndTags = blockInfo->sizeAndTags;   
-   fprintf(stderr, "FREE: %p\n", (void *)blockInfo);
+   fprintf(stderr, "\nFREE: %p\n", (void *)blockInfo);
    examine_heap();
-   
+   payloadSize = SIZE(blockInfo->sizeAndTags);
+   blockInfo->sizeAndTags = blockInfo->sizeAndTags & ~TAG_USED; 
+   *((size_t*)UNSCALED_POINTER_ADD(blockInfo, payloadSize - WORD_SIZE)) = payloadSize & ~TAG_USED;
+   followingBlock = blockInfo+payloadSize; 
+   followingBlock->sizeAndTags = blockInfo->sizeAndTags & ~TAG_PRECEDING_USED; 
+   followingBlockSize = SIZE(followingBlock->sizeAndTags);
+   *((size_t*)UNSCALED_POINTER_ADD(followingBlock, followingBlockSize - WORD_SIZE)) = followingBlockSize & ~TAG_PRECEDING_USED;
+
    insertFreeBlock(blockInfo);
    coalesceFreeBlock(blockInfo);
    return;
