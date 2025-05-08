@@ -375,31 +375,54 @@
    }
    fprintf(stderr, "\n\nMALLOC: %ld\n", reqSize);
    examine_heap();
- 
+   
+   // First search list 
    ptrFreeBlock = searchFreeList(reqSize);
    fprintf(stderr, "FOUND FREE BLOCK: %p\n", ptrFreeBlock);
+   // If there is a block of adequate size
+   if (ptrFreeBlock == NULL) {
+    requestMoreSpace(reqSize);
+    fprintf(stderr, "\nATTEMPING TO REQUEST MORE SPACE OF SIZE:  %ld\n", reqSize);
+    ptrFreeBlock = searchFreeList(reqSize);
+    fprintf(stderr, "FOUND BLOCK: %p\n", ptrFreeBlock);
+   }
    if (ptrFreeBlock != NULL) {
-
+      // grab size of block 
       blockSize = SIZE(ptrFreeBlock->sizeAndTags);
       fprintf(stderr, "FOUND BLOCK OF SIZE: %ld\n", blockSize);
+      // if there is enough space to splice off another block 
       if(blockSize > reqSize + MIN_BLOCK_SIZE) {
+        // spliced block starts at our free block + the request size 
         ptrSplicedBlock = (BlockInfo *)UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
+        // size = everything else other than our original request 
         SplicedBlockSize = (blockSize - reqSize);
+        // prev one is used because that's what we're allocating
         ptrSplicedBlock->sizeAndTags = SplicedBlockSize | TAG_PRECEDING_USED;
+        // setting the footer 
+        *((size_t*)UNSCALED_POINTER_ADD(ptrSplicedBlock, SplicedBlockSize - WORD_SIZE)) = SplicedBlockSize | TAG_PRECEDING_USED;
+        // inserting 
+        insertFreeBlock(ptrSplicedBlock);
+        // setting our original block size to be the entire block size minus what we allocated for the spliced block
+        blockSize = (blockSize-SplicedBlockSize);
+      } // If there is not enough space to splice off another block
+      /*else if (){
+        requestMoreSpace(reqSize);
+        ptrSplicedBlock = (BlockInfo *)UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);
+        SplicedBlockSize = (blockSize - reqSize) + reqSize; 
+        ptrSplicedBlock->sizeAndTags = SplicedBlockSize | TAG_PRECEDING_USED; 
         *((size_t*)UNSCALED_POINTER_ADD(ptrSplicedBlock, SplicedBlockSize - WORD_SIZE)) = SplicedBlockSize | TAG_PRECEDING_USED;
         insertFreeBlock(ptrSplicedBlock);
-        blockSize = (blockSize-SplicedBlockSize);
-      }
-      ptrFreeBlock->sizeAndTags = blockSize | TAG_USED;
+        blockSize = reqSize;
+      } */ 
+      // set header tags 
+      precedingBlockUseTag = ptrFreeBlock->sizeAndTags & TAG_PRECEDING_USED;
+      ptrFreeBlock->sizeAndTags = blockSize | TAG_USED | TAG_PRECEDING_USED;
+      // set footer tags 
       *((size_t*)UNSCALED_POINTER_ADD(ptrFreeBlock, blockSize - WORD_SIZE)) = blockSize | TAG_USED;
       removeFreeBlock(ptrFreeBlock);
       return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); 
-   }
-
-   requestMoreSpace(reqSize);
-   fprintf(stderr, "\nATTEMPING TO REQUEST MORE SPACE OF SIZE:  %ld\n", reqSize);
-   ptrFreeBlock = searchFreeList(reqSize);
-   fprintf(stderr, "FOUND BLOCK: %p\n", ptrFreeBlock);
+   } 
+   /*
    if (ptrFreeBlock != NULL) {
     // if block size is greater than the request size plus minimum block size
     // does it make sense to splice ? 
@@ -417,7 +440,7 @@
      removeFreeBlock(ptrFreeBlock);
      return UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE);  
    }
-
+   */
    fprintf(stderr, "HIT DID NOT FIND: %ld\n", reqSize);
    return NULL;
    
@@ -431,7 +454,7 @@
    size_t followingBlockSize; 
    // Implement mm_free.  You can change or remove the declaraions
    // above.  They are included as minor hints.
-   blockInfo = ptr;
+   blockInfo = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
    fprintf(stderr, "\nFREE: %p\n", (void *)blockInfo);
    examine_heap();
    payloadSize = SIZE(blockInfo->sizeAndTags);
@@ -444,6 +467,7 @@
 
    insertFreeBlock(blockInfo);
    coalesceFreeBlock(blockInfo);
+   fprintf(stderr, "\nsuccessfully freed\n");
    return;
  
  }
