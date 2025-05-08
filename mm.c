@@ -392,7 +392,7 @@
    if (ptrFreeBlock != NULL) {
      removeFreeBlock(ptrFreeBlock);
      fprintf(stderr, "FOUND BLOCK OF SIZE: %ld\n", reqSize);
-     return ptrFreeBlock->next; 
+     return UNSCALED_POINTER_ADD(ptrFreeBlock->next, WORD_SIZE); 
      //return UNSCALED_POINTER_ADD(ptrFreeBlock->next, WORD_SIZE);
    }
    requestMoreSpace(reqSize);
@@ -402,7 +402,7 @@
    if (ptrFreeBlock != NULL) {
      removeFreeBlock(ptrFreeBlock);
      fprintf(stderr, "EXTENDED HEAP FOR BLOCK OF SIZE: %ld\n", reqSize);
-     return ptrFreeBlock->next; 
+     return UNSCALED_POINTER_ADD(ptrFreeBlock->next, WORD_SIZE);  
    }
    fprintf(stderr, "HIT DID NOT FIND: %ld\n", reqSize);
    return NULL;
